@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>江戸幕府末期の銃撃戦.io</title>
+  <style>
+    html, body {
+      margin: 0; overflow: hidden; background: #000; font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; color: #fff;
+      user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none;
+    }
+    #cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: #fff; border-radius: 50%; box-shadow: 0 0 2px #000; transition: background .08s; }
+    #cross.hit { background: #ff3333; }
+    #hud { position: fixed; left: 16px; bottom: 16px; font-size: 18px; text-shadow: 0 0 4px #000; line-height: 1.5; }
+    #msg { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 26px; font-weight: bold; text-shadow: 0 0 6px #000; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+    #hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%, 24px); font-size: 14px; opacity: .8; text-shadow: 0 0 4px #000; }
+    #fps, #net { position: fixed; left: 16px; font-size: 13px; font-family: monospace; text-shadow: 0 0 3px #000; pointer-events: none; }
+    #fps { top: 12px; }
+    #net { top: 30px; }
+
+    #killfeed { position: fixed; right: 16px; top: 16px; text-align: right; font-size: 14px; text-shadow: 0 0 4px #000; pointer-events: none; }
+    #killfeed div { margin-bottom: 4px; }
+
+    #labels { position: fixed; left: 0; top: 0; pointer-events: none; }
+    .tag { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 13px; font-weight: bold; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+
+    .admin {
+      background: linear-gradient(90deg, #ff0000, #ffaa00, #ffff00, #00ff66, #00ccff, #6666ff, #ff00ff, #ff0000);
+      background-size: 200% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: rainbow 2s linear infinite;
+    }
+    @keyframes rainbow { to { background-position: 200% 0; } }
+
+    #board { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); min-width: 280px; padding: 16px 20px; background: rgba(0,0,0,.7); border-radius: 8px; font-size: 16px; pointer-events: none; }
+    #board .title { font-weight: bold; margin-bottom: 8px; text-align: center; }
+    #board table { width: 100%; border-collapse: collapse; }
+    #board th, #board td { padding: 4px 8px; text-align: left; }
+    #board td:not(:first-child), #board th:not(:first-child) { text-align: right; }
+    #board tr.me td { color: #ffdd66; }
+
+    /* 設定画面 */
+    #settings { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 380px); max-height: 88vh; overflow: auto; padding: 18px; background: rgba(12,14,20,.96); border: 1px solid #444; border-radius: 10px; box-sizing: border-box; font-size: 14px; }
+    #settings h2 { margin: 0 0 12px; font-size: 18px; }
+    #settings label { display: block; margin: 10px 0 4px; }
+    #settings input[type=range] { width: 100%; }
+    #settings input[type=text], #settings input[type=password], #settings select { width: 100%; padding: 6px; box-sizing: border-box; background: #1c2030; color: #fff; border: 1px solid #444; border-radius: 4px; }
+    #settings .row { display: flex; align-items: center; gap: 8px; }
+    #settings .help { font-size: 12px; opacity: .7; margin-top: 12px; line-height: 1.6; }
+    #set-close { margin-top: 14px; width: 100%; padding: 10px; background: #3a5; color: #fff; border: 0; border-radius: 6px; font-size: 15px; font-weight: bold; }
+
+
+    #admin-btn { position: fixed; right: 70px; bottom: 16px; width: 44px; height: 44px; display: none; pointer-events: auto; z-index: 2; color: #ffd27a; border-color: #ffd27a; }
+    #admin { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94vw, 420px); max-height: 88vh; overflow: auto; padding: 18px; background: rgba(12,14,20,.97); border: 1px solid #ffd27a; border-radius: 10px; box-sizing: border-box; font-size: 14px; }
+    #admin h2 { margin: 0 0 10px; font-size: 18px; }
+    #admin .sec-title { margin: 14px 0 6px; font-weight: bold; color: #ffd27a; }
+    #admin .arow { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #222; }
+    #admin .arow small { opacity: .6; }
+    #admin button { padding: 6px 10px; margin: 2px; background: #2a2f40; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; }
+    #admin button[data-kick] { background: #6a2020; }
+    #admin-maps { display: flex; flex-wrap: wrap; }
+    #admin .row { display: flex; gap: 6px; }
+    #admin input[type=text] { flex: 1; padding: 6px; background: #1c2030; color: #fff; border: 1px solid #444; border-radius: 4px; }
+    #admin .acts button { font-size: 12px; padding: 4px 6px; }
+    #admin-log { max-height: 160px; overflow: auto; font-size: 12px; font-family: monospace; opacity: .85; }
+    #admin-log div { padding: 2px 0; border-bottom: 1px solid #1d2230; }
+    #admin .row-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+    #admin-close { margin-top: 14px; width: 100%; padding: 10px; background: #555; color: #fff; border: 0; border-radius: 6px; font-size: 15px; font-weight: bold; }
+
+    /* タッチUI */
+    #touch { position: fixed; inset: 0; display: none; pointer-events: none; }
+    #stick { position: absolute; left: max(32px, env(safe-area-inset-left)); bottom: max(32px, env(safe-area-inset-bottom)); width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.3); pointer-events: auto; }
+    #knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(255,255,255,.35); pointer-events: none; }
+    .btn { position: absolute; border-radius: 50%; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.35); pointer-events: auto; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; }
+    #fire { right: max(32px, env(safe-area-inset-right)); bottom: max(32px, env(safe-area-inset-bottom)); width: 110px; height: 110px; background: rgba(255,80,60,.35); font-size: 18px; }
+    #reload { right: max(160px, calc(env(safe-area-inset-right) + 160px)); bottom: max(48px, env(safe-area-inset-bottom)); width: 72px; height: 72px; }
+    #swap { right: max(48px, env(safe-area-inset-right)); bottom: max(160px, calc(env(safe-area-inset-bottom) + 160px)); width: 72px; height: 72px; }
+    #jump { left: max(200px, calc(env(safe-area-inset-left) + 200px)); bottom: max(48px, env(safe-area-inset-bottom)); width: 80px; height: 80px; }
+    #gear { position: fixed; right: 16px; bottom: 16px; width: 44px; height: 44px; display: flex; pointer-events: auto; z-index: 2; }
+
+    body.touch #touch { display: block; }
+    body.touch #hint { display: none; }
+    body.touch #hud { bottom: auto; top: max(56px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); }
+    body.touch #fps { top: max(12px, env(safe-area-inset-top)); }
+    body.touch #net { top: max(30px, calc(env(safe-area-inset-top) + 18px)); }
+    body.touch #killfeed { top: max(16px, env(safe-area-inset-top)); }
+  </style>
+</head>
+<body>
+  <div id="cross"></div>
+  <div id="msg"></div>
+  <div id="fps">FPS --</div>
+  <div id="net">PING -- ms</div>
+  <div id="killfeed"></div>
+  <div id="labels"></div>
+  <div id="board"></div>
+  <div id="hint">クリックで開始 / WASD移動 / Space ジャンプ / マウス視点 / クリック射撃 / 1〜7武器 / R リロード / Tab スコア / O 設定</div>
+  <div id="hud"></div>
+
+  <div id="touch">
+    <div id="stick"><div id="knob"></div></div>
+    <div id="reload" class="btn">リロード</div>
+    <div id="swap" class="btn">武器</div>
+    <div id="jump" class="btn">ジャンプ</div>
+    <div id="fire" class="btn">撃つ</div>
+  </div>
+  <div id="gear" class="btn">⚙</div>
+  <div id="admin-btn" class="btn">管</div>
+
+  <div id="settings">
+    <h2>設定</h2>
+    <label for="set-name">ニックネーム（12文字まで）</label>
+    <input id="set-name" type="text" maxlength="12">
+
+    <label for="set-sens">マウス感度</label>
+    <input id="set-sens" type="range" min="0.2" max="3" step="0.05">
+    <label for="set-touch">タッチ感度</label>
+    <input id="set-touch" type="range" min="0.2" max="3" step="0.05">
+
+    <label for="set-fov">視野角（FOV）</label>
+    <input id="set-fov" type="range" min="60" max="110" step="1">
+
+    <label for="set-vol">音量</label>
+    <input id="set-vol" type="range" min="0" max="1" step="0.05">
+
+    <div class="row"><input id="set-fps" type="checkbox"><label for="set-fps" style="margin:0">FPS・PINGを表示</label></div>
+
+    <label for="set-skin-weapon">スキン：武器</label>
+    <select id="set-skin-weapon"></select>
+    <label for="set-skin">スキン：デザイン</label>
+    <select id="set-skin"></select>
+
+    <label for="set-knife">ナイフの形</label>
+    <select id="set-knife"><option value="tanto">短刀</option><option value="karambit">カランビット</option></select>
+
+    <label for="set-admin">管理者キー</label>
+    <input id="set-admin" type="password" placeholder="管理者のみ">
+
+    <div class="help">
+      操作：WASD移動 / Space ジャンプ（押しっぱなしで連続ジャンプ）<br>
+      射撃：クリック（オート武器は押しっぱなし）/ R リロード / 1〜7 武器切替（1＝ナイフ）<br>
+      Tab スコア / O 設定の開閉 / Esc でマウス解除
+    </div>
+    <button id="set-close">閉じる</button>
+  </div>
+
+
+  <div id="admin">
+    <h2>管理者パネル</h2>
+      <div class="sec-title">プレイヤー</div>
+      <div id="admin-list"></div>
+      <div class="sec-title">マップ変更</div>
+      <div id="admin-maps"></div>
+      <div class="sec-title">全体操作</div>
+      <div class="row-wrap"><button id="admin-reset">スコアをリセット</button></div>
+      <div class="sec-title">お知らせ（全員に表示）</div>
+      <div class="row"><input id="admin-say" type="text" maxlength="60" placeholder="例：あと3分で大会開始"><button id="admin-say-btn">送信</button></div>
+      <div class="sec-title">操作ログ</div>
+      <div id="admin-log"></div>
+
+    <button id="admin-close">閉じる</button>
+  </div>
+  <script type="module" src="./client/main.js"></script>
+</body>
+</html>
